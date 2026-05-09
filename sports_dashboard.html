@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SportsPulse — Athletic Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --ink: #111111;
+    --surface: #ffffff;
+    --border: #111111;
+    --red: #e8180c;
+    --gold: #f5a623;
+    --green: #1a7a3c;
+    --blue: #0057b8;
+    --muted: #666655;
+    --stripe: rgba(17,17,17,0.04);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    background-image: repeating-linear-gradient(
+      0deg, transparent, transparent 39px,
+      rgba(17,17,17,0.06) 39px, rgba(17,17,17,0.06) 40px
+    );
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+
+  /* HEADER — Scoreboard style */
+  header {
+    background: var(--ink);
+    color: #fff;
+    padding: 0;
+    border-bottom: 4px solid var(--red);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      90deg, transparent, transparent 60px,
+      rgba(255,255,255,0.02) 60px, rgba(255,255,255,0.02) 61px
+    );
+  }
+  .header-inner {
+    display: flex; align-items: stretch; justify-content: space-between;
+    position: relative; z-index: 1;
+  }
+  .logo-block {
+    padding: 16px 28px;
+    border-right: 2px solid rgba(255,255,255,0.1);
+  }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.8rem; line-height: 1;
+    letter-spacing: 2px;
+    color: #fff;
+  }
+  .logo span { color: var(--red); }
+  .logo-sub {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.65rem; letter-spacing: 3px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase; margin-top: 2px;
+  }
+  .score-ticker {
+    display: flex; align-items: center; gap: 0;
+    flex: 1; overflow: hidden;
+  }
+  .ticker-item {
+    padding: 0 24px; border-right: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column; justify-content: center;
+    height: 100%;
+  }
+  .ticker-sport {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.55rem; letter-spacing: 2px;
+    color: var(--gold); text-transform: uppercase;
+  }
+  .ticker-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; letter-spacing: 1px; color: #fff; line-height: 1;
+  }
+  .header-right {
+    padding: 12px 20px;
+    border-left: 2px solid rgba(255,255,255,0.1);
+    display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
+  }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem; letter-spacing: 2px; color: var(--red);
+    text-transform: uppercase;
+  }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .header-date { font-size: 0.65rem; color: rgba(255,255,255,0.35); margin-top: 4px; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 1px; }
+
+  /* FILTER BAR */
+  .filter-bar {
+    background: var(--ink);
+    border-bottom: 3px solid var(--gold);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .filter-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.65rem; letter-spacing: 2px;
+    color: rgba(255,255,255,0.4); text-transform: uppercase;
+  }
+  select, .fbtn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.8rem; letter-spacing: 1px;
+    padding: 6px 14px; cursor: pointer;
+    transition: all 0.15s; outline: none; appearance: none;
+    text-transform: uppercase;
+  }
+  select:hover, .fbtn:hover { background: rgba(255,255,255,0.12); border-color: var(--gold); color: var(--gold); }
+  .fbtn.active { background: var(--red); border-color: var(--red); color: #fff; }
+  .fbtn-reset { margin-left: auto; border-color: rgba(232,24,12,0.4); color: var(--red); }
+  .fbtn-reset:hover { background: var(--red); color: #fff; }
+
+  /* KPI SCOREBOARD */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border: 2px solid var(--ink);
+    margin: 20px 0;
+    background: var(--ink);
+  }
+  .kpi-card {
+    background: var(--surface);
+    padding: 20px;
+    position: relative;
+    animation: slideIn 0.4s ease both;
+    border-right: 2px solid var(--ink);
+  }
+  .kpi-card:last-child { border-right: none; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .kpi-sport-tag {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.55rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 4px;
+  }
+  .kpi-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.6rem; line-height: 1; letter-spacing: 1px;
+    transition: all 0.3s;
+  }
+  .kpi-card:nth-child(1) .kpi-value { color: var(--red); }
+  .kpi-card:nth-child(2) .kpi-value { color: var(--blue); }
+  .kpi-card:nth-child(3) .kpi-value { color: var(--green); }
+  .kpi-card:nth-child(4) .kpi-value { color: var(--gold); }
+  .kpi-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); margin-top: 4px;
+  }
+  .kpi-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  }
+  .kpi-card:nth-child(1) .kpi-bar { background: var(--red); }
+  .kpi-card:nth-child(2) .kpi-bar { background: var(--blue); }
+  .kpi-card:nth-child(3) .kpi-bar { background: var(--green); }
+  .kpi-card:nth-child(4) .kpi-bar { background: var(--gold); }
+
+  /* CHART LAYOUT */
+  .chart-row { display: grid; gap: 16px; margin-bottom: 16px; }
+  .chart-row-2 { grid-template-columns: 2fr 1fr; }
+  .chart-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .chart-card {
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    padding: 0;
+    overflow: hidden;
+    animation: slideIn 0.5s ease both;
+  }
+  .chart-head {
+    background: var(--ink); color: #fff;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .chart-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem; letter-spacing: 2px;
+  }
+  .chart-tag {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.55rem; letter-spacing: 2px; text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+  }
+  .chart-body { padding: 16px; }
+  .chart-wrap { position: relative; }
+  .chart-wrap.h220 { height: 220px; }
+  .chart-wrap.h260 { height: 260px; }
+  .chart-wrap.h180 { height: 180px; }
+
+  /* LEADERBOARD TABLE */
+  .table-card {
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    margin-bottom: 24px;
+    overflow: hidden;
+    animation: slideIn 0.5s ease both;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--ink); }
+  th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase;
+    color: rgba(255,255,255,0.5); padding: 10px 14px; text-align: left;
+    cursor: pointer;
+  }
+  th:hover { color: var(--gold); }
+  td { padding: 9px 14px; font-size: 0.78rem; border-bottom: 1px solid rgba(17,17,17,0.07); font-family: 'Barlow', sans-serif; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(17,17,17,0.03); }
+  .rank {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem;
+    color: var(--muted);
+  }
+  .rank.top { color: var(--red); }
+  .player-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 0.88rem; letter-spacing: 0.5px; }
+  .sport-pill {
+    display: inline-block; padding: 2px 8px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.6rem; letter-spacing: 1px; text-transform: uppercase;
+    border: 1px solid; font-weight: 600;
+  }
+  .pill-football { border-color: var(--green); color: var(--green); }
+  .pill-basketball { border-color: var(--red); color: var(--red); }
+  .pill-baseball { border-color: var(--blue); color: var(--blue); }
+  .pill-soccer { border-color: var(--gold); color: #8a5a00; }
+  .pill-tennis { border-color: #9b59b6; color: #9b59b6; }
+  .stat-bar-wrap { width: 80px; }
+  .stat-bar { height: 5px; background: #e0ddd5; position: relative; }
+  .stat-fill { height: 100%; background: var(--ink); transition: width 0.6s ease; }
+
+  .section-divider {
+    border: none; border-top: 2px solid var(--ink);
+    margin: 4px 0 16px;
+  }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .kpi-card { border-bottom: 2px solid var(--ink); }
+    .chart-row-2, .chart-row-3 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .score-ticker { display: none; }
+    .logo { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner container">
+    <div class="logo-block">
+      <div class="logo">Sport<span>Pulse</span></div>
+      <div class="logo-sub">Athletic Performance Intelligence · AI-Generated</div>
+    </div>
+    <div class="score-ticker">
+      <div class="ticker-item"><div class="ticker-sport">Football</div><div class="ticker-score">Chiefs 28 · Ravens 21</div></div>
+      <div class="ticker-item"><div class="ticker-sport">Basketball</div><div class="ticker-score">Lakers 112 · Celtics 108</div></div>
+      <div class="ticker-item"><div class="ticker-sport">Soccer</div><div class="ticker-score">City 3 · United 1</div></div>
+      <div class="ticker-item"><div class="ticker-sport">Baseball</div><div class="ticker-score">Yankees 7 · Sox 4</div></div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><span class="live-dot"></span>Live Data</div>
+      <div class="header-date" id="header-date"></div>
+    </div>
+  </div>
+</header>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <span class="filter-label">Filter:</span>
+  <select id="sportFilter" onchange="applyFilters()">
+    <option value="all">All Sports</option>
+    <option value="Football">Football</option>
+    <option value="Basketball">Basketball</option>
+    <option value="Baseball">Baseball</option>
+    <option value="Soccer">Soccer</option>
+    <option value="Tennis">Tennis</option>
+  </select>
+  <select id="seasonFilter" onchange="applyFilters()">
+    <option value="all">All Seasons</option>
+    <option value="2022">2022</option>
+    <option value="2023">2023</option>
+    <option value="2024">2024</option>
+  </select>
+  <select id="teamFilter" onchange="applyFilters()">
+    <option value="all">All Teams</option>
+    <option value="Team A">Team A</option>
+    <option value="Team B">Team B</option>
+    <option value="Team C">Team C</option>
+    <option value="Team D">Team D</option>
+  </select>
+  <div class="fbtn" id="sortToggle" onclick="toggleSort()">Sort: Score ↓</div>
+  <div class="fbtn fbtn-reset" onclick="resetFilters()">✕ Reset</div>
+</div>
+
+<div class="container" style="padding-top:4px">
+
+  <!-- KPI -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-sport-tag">Total Points</div>
+      <div class="kpi-value" id="kpi-points">—</div>
+      <div class="kpi-label">Across All Sports</div>
+      <div class="kpi-bar"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-sport-tag">Games Played</div>
+      <div class="kpi-value" id="kpi-games">—</div>
+      <div class="kpi-label">Total Matches</div>
+      <div class="kpi-bar"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-sport-tag">Win Rate</div>
+      <div class="kpi-value" id="kpi-winrate">—</div>
+      <div class="kpi-label">Overall %</div>
+      <div class="kpi-bar"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-sport-tag">Top Score</div>
+      <div class="kpi-value" id="kpi-top">—</div>
+      <div class="kpi-label">Season High</div>
+      <div class="kpi-bar"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="chart-row chart-row-2">
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">Season Performance Trend</span>
+        <span class="chart-tag">Filterable Line Graph</span>
+      </div>
+      <div class="chart-body">
+        <div class="chart-wrap h260"><canvas id="lineChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">Sport Distribution</span>
+        <span class="chart-tag">Click to Drill Down</span>
+      </div>
+      <div class="chart-body">
+        <div class="chart-wrap h260"><canvas id="pieChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="chart-row chart-row-3">
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">Points by Sport</span>
+        <span class="chart-tag">Dynamic Bar Chart</span>
+      </div>
+      <div class="chart-body">
+        <div class="chart-wrap h180"><canvas id="barChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">Win vs Loss</span>
+        <span class="chart-tag">By Team</span>
+      </div>
+      <div class="chart-body">
+        <div class="chart-wrap h180"><canvas id="stackedBar"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">Avg Score / Game</span>
+        <span class="chart-tag">Radar</span>
+      </div>
+      <div class="chart-body">
+        <div class="chart-wrap h180"><canvas id="radarChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div class="table-card">
+    <div class="chart-head" style="padding:12px 16px">
+      <span class="chart-title">Player Leaderboard</span>
+      <span class="chart-tag">Sortable · <span id="row-count">—</span> Records</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortTable('rank')">#</th>
+            <th onclick="sortTable('player')">Player</th>
+            <th onclick="sortTable('sport')">Sport</th>
+            <th onclick="sortTable('team')">Team</th>
+            <th onclick="sortTable('season')">Season</th>
+            <th onclick="sortTable('score')">Score ↕</th>
+            <th onclick="sortTable('wins')">Wins</th>
+            <th onclick="sortTable('winRate')">Win %</th>
+            <th>Performance</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── SYNTHETIC DATASET ────────────────────────────────────────────────────────
+const SPORTS = ['Football','Basketball','Baseball','Soccer','Tennis'];
+const TEAMS = ['Team A','Team B','Team C','Team D'];
+const SEASONS = ['2022','2023','2024'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const SPORT_SCORE_BASE = { Football: 28, Basketball: 105, Baseball: 6, Soccer: 3, Tennis: 48 };
+const PLAYER_NAMES = [
+  'J. Martinez','K. Johnson','L. Williams','M. Brown','N. Davis',
+  'O. Wilson','P. Moore','Q. Taylor','R. Anderson','S. Thomas',
+  'T. Jackson','U. White','V. Harris','W. Martin','X. Garcia',
+  'Y. Miller','Z. Lewis','A. Robinson','B. Clark','C. Walker'
+];
+
+let rawData = [];
+let pid = 0;
+SEASONS.forEach(season => {
+  SPORTS.forEach(sport => {
+    TEAMS.forEach(team => {
+      MONTHS.forEach((month, mi) => {
+        const base = SPORT_SCORE_BASE[sport];
+        const seasonal = 1 + 0.15 * Math.sin((mi - 2) * Math.PI / 6);
+        const noise = 0.8 + Math.random() * 0.4;
+        const score = +(base * seasonal * noise).toFixed(1);
+        const games = Math.floor(4 + Math.random() * 6);
+        const wins = Math.floor(games * (0.4 + Math.random() * 0.4));
+        const player = PLAYER_NAMES[pid % PLAYER_NAMES.length];
+        rawData.push({ id: pid++, player, sport, team, season, month, monthIdx: mi, score, games, wins, winRate: +(wins/games*100).toFixed(1) });
+      });
+    });
+  });
+});
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let filtered = [...rawData];
+let sortKey = 'score'; let sortDir = -1;
+
+function applyFilters() {
+  const sp = document.getElementById('sportFilter').value;
+  const se = document.getElementById('seasonFilter').value;
+  const tm = document.getElementById('teamFilter').value;
+  filtered = rawData.filter(d =>
+    (sp === 'all' || d.sport === sp) &&
+    (se === 'all' || d.season === se) &&
+    (tm === 'all' || d.team === tm)
+  );
+  updateAll();
+}
+
+function resetFilters() {
+  ['sportFilter','seasonFilter','teamFilter'].forEach(id => document.getElementById(id).value = 'all');
+  filtered = [...rawData]; updateAll();
+}
+
+function toggleSort() {
+  sortDir *= -1;
+  document.getElementById('sortToggle').textContent = 'Sort: Score ' + (sortDir < 0 ? '↓' : '↑');
+  updateTable();
+}
+
+function sortTable(key) {
+  if (sortKey === key) sortDir *= -1; else sortDir = -1;
+  sortKey = key; updateTable();
+}
+
+// ── KPI ──────────────────────────────────────────────────────────────────────
+function updateKPIs() {
+  const totalPts = filtered.reduce((s,d) => s + d.score * d.games, 0);
+  const totalGames = filtered.reduce((s,d) => s + d.games, 0);
+  const totalWins = filtered.reduce((s,d) => s + d.wins, 0);
+  const winRate = totalGames ? (totalWins/totalGames*100).toFixed(1) : 0;
+  const topScore = filtered.length ? Math.max(...filtered.map(d => d.score)) : 0;
+
+  anim('kpi-points', totalPts, v => v >= 1000 ? (v/1000).toFixed(1)+'K' : Math.round(v));
+  anim('kpi-games', totalGames, v => Math.round(v));
+  document.getElementById('kpi-winrate').textContent = winRate + '%';
+  document.getElementById('kpi-top').textContent = topScore.toFixed(0);
+}
+
+function anim(id, target, fmt) {
+  const el = document.getElementById(id);
+  let t0 = performance.now();
+  function step(now) {
+    const p = Math.min((now-t0)/500, 1);
+    el.textContent = fmt(p * target);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── CHARTS ───────────────────────────────────────────────────────────────────
+const COLORS = ['#e8180c','#0057b8','#1a7a3c','#f5a623','#9b59b6'];
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#444', font: { family: 'Barlow Condensed', size: 11 }, boxWidth: 10 } } },
+  scales: {
+    x: { ticks: { color: '#777', font: { family: 'Barlow Condensed', size: 11 } }, grid: { color: 'rgba(0,0,0,0.06)' } },
+    y: { ticks: { color: '#777', font: { family: 'Barlow Condensed', size: 11 } }, grid: { color: 'rgba(0,0,0,0.06)' } }
+  }
+};
+
+let lc, pc, bc, sb, rc;
+
+function buildLine() {
+  const ctx = document.getElementById('lineChart').getContext('2d');
+  const byMonth = {};
+  MONTHS.forEach(m => byMonth[m] = { score: 0, games: 0 });
+  filtered.forEach(d => { byMonth[d.month].score += d.score; byMonth[d.month].games += d.games; });
+  const avgScore = MONTHS.map(m => byMonth[m].games ? +(byMonth[m].score/byMonth[m].games).toFixed(1) : 0);
+  const wins = MONTHS.map(m => byMonth[m].games);
+
+  const g = ctx.createLinearGradient(0,0,0,260);
+  g.addColorStop(0,'rgba(232,24,12,0.2)'); g.addColorStop(1,'rgba(232,24,12,0)');
+
+  if (lc) lc.destroy();
+  lc = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        { label: 'Avg Score', data: avgScore, yAxisID:'y', borderColor:'#e8180c', backgroundColor: g, fill:true, tension:0.4, borderWidth:2.5, pointBackgroundColor:'#e8180c', pointRadius:4 },
+        { label: 'Games', data: wins, yAxisID:'y1', borderColor:'#0057b8', fill:false, tension:0.4, borderWidth:2, borderDash:[5,4], pointBackgroundColor:'#0057b8', pointRadius:3 }
+      ]
+    },
+    options: { ...baseOpts,
+      plugins: { ...baseOpts.plugins, tooltip:{ backgroundColor:'#111', titleColor:'#fff', bodyColor:'#aaa', borderColor:'#333', borderWidth:1 } },
+      scales: { x: baseOpts.scales.x,
+        y: { ...baseOpts.scales.y, position:'left' },
+        y1: { ...baseOpts.scales.y, position:'right', grid:{ drawOnChartArea:false } }
+      }
+    }
+  });
+}
+
+function buildPie() {
+  const ctx = document.getElementById('pieChart').getContext('2d');
+  const bySport = {};
+  SPORTS.forEach(s => bySport[s]=0);
+  filtered.forEach(d => bySport[d.sport] += d.games);
+
+  if (pc) pc.destroy();
+  pc = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: SPORTS, datasets:[{ data: SPORTS.map(s=>bySport[s]), backgroundColor: COLORS, borderColor:'#fff', borderWidth:3, hoverOffset:10 }] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ position:'bottom', labels:{ color:'#444', font:{family:'Barlow Condensed',size:11}, boxWidth:10, padding:10 } },
+        tooltip:{ backgroundColor:'#111', callbacks:{ label: ctx => { const t=ctx.dataset.data.reduce((a,b)=>a+b,0); return ctx.label+': '+(ctx.parsed/t*100).toFixed(1)+'%'; } } }
+      },
+      onClick:(e,els) => { if(!els.length) return; document.getElementById('sportFilter').value=SPORTS[els[0].index]; applyFilters(); }
+    }
+  });
+}
+
+function buildBar() {
+  const ctx = document.getElementById('barChart').getContext('2d');
+  const bySport = {};
+  SPORTS.forEach(s => bySport[s]=0);
+  filtered.forEach(d => bySport[d.sport] += d.score * d.games);
+
+  if (bc) bc.destroy();
+  bc = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: SPORTS, datasets:[{ label:'Total Points', data:SPORTS.map(s=>Math.round(bySport[s])), backgroundColor:COLORS, borderRadius:3 }] },
+    options: { ...baseOpts,
+      plugins:{ ...baseOpts.plugins, legend:{display:false},
+        tooltip:{ backgroundColor:'#111', callbacks:{label:c=>c.parsed.y.toLocaleString()+' pts'} }
+      },
+      onClick:(e,els) => { if(!els.length) return; document.getElementById('sportFilter').value=SPORTS[els[0].index]; applyFilters(); }
+    }
+  });
+}
+
+function buildStacked() {
+  const ctx = document.getElementById('stackedBar').getContext('2d');
+  const wins = {}, losses = {};
+  TEAMS.forEach(t => { wins[t]=0; losses[t]=0; });
+  filtered.forEach(d => { wins[d.team]+=d.wins; losses[d.team]+=(d.games-d.wins); });
+
+  if (sb) sb.destroy();
+  sb = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: TEAMS, datasets:[
+      { label:'Wins', data:TEAMS.map(t=>wins[t]), backgroundColor:'#1a7a3c', borderRadius:2 },
+      { label:'Losses', data:TEAMS.map(t=>losses[t]), backgroundColor:'#e8180c', borderRadius:2 }
+    ]},
+    options: { ...baseOpts, scales: { x:{...baseOpts.scales.x, stacked:true}, y:{...baseOpts.scales.y, stacked:true} },
+      plugins:{ ...baseOpts.plugins, tooltip:{backgroundColor:'#111', titleColor:'#fff', bodyColor:'#aaa'} }
+    }
+  });
+}
+
+function buildRadar() {
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  const bySport = {};
+  const countBySport = {};
+  SPORTS.forEach(s => { bySport[s]=0; countBySport[s]=0; });
+  filtered.forEach(d => { bySport[d.sport]+=d.score; countBySport[d.sport]++; });
+  const avgs = SPORTS.map(s => countBySport[s] ? +(bySport[s]/countBySport[s]).toFixed(1) : 0);
+
+  if (rc) rc.destroy();
+  rc = new Chart(ctx, {
+    type: 'radar',
+    data: { labels: SPORTS, datasets:[{ label:'Avg Score/Game', data:avgs,
+      borderColor:'#f5a623', backgroundColor:'rgba(245,166,35,0.15)',
+      borderWidth:2, pointBackgroundColor:'#f5a623', pointRadius:4
+    }]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#111'} },
+      scales:{ r:{ ticks:{color:'#888', font:{family:'Barlow Condensed',size:9}}, grid:{color:'rgba(0,0,0,0.08)'}, pointLabels:{color:'#333', font:{family:'Barlow Condensed',size:11}} } }
+    }
+  });
+}
+
+// ── TABLE ────────────────────────────────────────────────────────────────────
+function updateTable() {
+  const sorted = [...filtered].sort((a,b) => {
+    const av=a[sortKey], bv=b[sortKey];
+    return typeof av==='string' ? av.localeCompare(bv)*sortDir : (av-bv)*sortDir;
+  });
+  const top = sorted.slice(0,20);
+  document.getElementById('row-count').textContent = sorted.length;
+  const maxScore = Math.max(...sorted.map(d=>d.score));
+  const pillClass = { Football:'pill-football', Basketball:'pill-basketball', Baseball:'pill-baseball', Soccer:'pill-soccer', Tennis:'pill-tennis' };
+
+  document.getElementById('tableBody').innerHTML = top.map((d,i) => `
+    <tr>
+      <td><span class="rank ${i<3?'top':''}">${i+1}</span></td>
+      <td><span class="player-name">${d.player}</span></td>
+      <td><span class="sport-pill ${pillClass[d.sport]}">${d.sport}</span></td>
+      <td>${d.team}</td>
+      <td>${d.season}</td>
+      <td><strong>${d.score.toFixed(1)}</strong></td>
+      <td>${d.wins}/${d.games}</td>
+      <td>${d.winRate}%</td>
+      <td>
+        <div class="stat-bar-wrap"><div class="stat-bar">
+          <div class="stat-fill" style="width:${Math.round(d.score/maxScore*100)}%;background:${COLORS[SPORTS.indexOf(d.sport)]}"></div>
+        </div></div>
+      </td>
+    </tr>`).join('');
+}
+
+function updateAll() {
+  updateKPIs(); buildLine(); buildPie(); buildBar(); buildStacked(); buildRadar(); updateTable();
+}
+
+// Date
+const now = new Date();
+document.getElementById('header-date').textContent = now.toDateString().toUpperCase();
+
+updateAll();
+</script>
+</body>
+</html>
